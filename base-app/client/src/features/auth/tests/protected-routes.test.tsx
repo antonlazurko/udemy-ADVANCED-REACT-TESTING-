@@ -120,31 +120,106 @@ const signInFailure = (
   res: ResponseComposition<any>,
   ctx: RestContext
 ) => res(ctx.status(401));
-
-test("unsuccessfull sign in followed by successfull signin", async () => {
-  const errorHandler = rest.post(
-    `${baseUrl}/${endpoints.signIn}`,
-    signInFailure
+const serverError = (
+  req: RestRequest<DefaultRequestBody, RequestParams>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  res: ResponseComposition<any>,
+  ctx: RestContext
+) => res(ctx.status(500));
+const signUpFailure = (
+  req: RestRequest<DefaultRequestBody, RequestParams>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  res: ResponseComposition<any>,
+  ctx: RestContext
+) =>
+  res(
+    ctx.status(400),
+    ctx.json({
+      message: "Emeil already exist",
+    })
   );
-  server.resetHandlers(...handlers, errorHandler);
-  const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
 
-  const emailField = screen.getByLabelText(/email/i);
-  userEvent.type(emailField, "booking@avancheofcheese.com");
+// test("unsuccessfull sign in followed by successfull signin", async () => {
+//   const errorHandler = rest.post(
+//     `${baseUrl}/${endpoints.signIn}`,
+//     signInFailure
+//   );
+//   server.resetHandlers(...handlers, errorHandler);
+//   const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
 
-  const passwordlField = screen.getByLabelText(/password/i);
-  userEvent.type(passwordlField, "iheartcheese");
+//   const emailField = screen.getByLabelText(/email/i);
+//   userEvent.type(emailField, "booking@avancheofcheese.com");
 
-  const signInForm = screen.getByTestId("sign-in-form");
+//   const passwordlField = screen.getByLabelText(/password/i);
+//   userEvent.type(passwordlField, "iheartcheese");
 
-  const signInBtn = getByRole(signInForm, "button", {
-    name: /sign in/i,
-  });
-  userEvent.click(signInBtn);
-  server.resetHandlers();
-  userEvent.click(signInBtn);
-  await waitFor(() => {
-    expect(history.location.pathname).toBe("/tickets/1");
-  });
-  expect(history.entries).toHaveLength(1);
-});
+//   const signInForm = screen.getByTestId("sign-in-form");
+
+//   const signInBtn = getByRole(signInForm, "button", {
+//     name: /sign in/i,
+//   });
+//   userEvent.click(signInBtn);
+//   server.resetHandlers();
+//   userEvent.click(signInBtn);
+//   await waitFor(() => {
+//     expect(history.location.pathname).toBe("/tickets/1");
+//   });
+//   expect(history.entries).toHaveLength(1);
+// });
+
+test.each([
+  {
+    responseResolver: signInFailure,
+    endpoint: endpoints.signIn,
+    buttonNameRegEx: /sign in/i,
+    outcome: "failure",
+    route: "/tickets/1",
+  },
+  {
+    responseResolver: serverError,
+    endpoint: endpoints.signIn,
+    buttonNameRegEx: /sign in/i,
+    outcome: "server error",
+    route: "/tickets/1",
+  },
+  {
+    responseResolver: signUpFailure,
+    endpoint: endpoints.signUp,
+    buttonNameRegEx: /sign up/i,
+    outcome: "failure",
+    route: "/signin",
+  },
+  {
+    responseResolver: serverError,
+    endpoint: endpoints.signUp,
+    buttonNameRegEx: /sign up/i,
+    outcome: "error",
+    route: "/signin",
+  },
+])(
+  "$endpoint $outcome followed by successfull signin",
+  async ({ responseResolver, endpoint, buttonNameRegEx, route }) => {
+    const errorHandler = rest.post(`${baseUrl}/${endpoint}`, responseResolver);
+    server.resetHandlers(...handlers, errorHandler);
+    const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
+
+    const emailField = screen.getByLabelText(/email/i);
+    userEvent.type(emailField, "booking@avancheofcheese.com");
+
+    const passwordlField = screen.getByLabelText(/password/i);
+    userEvent.type(passwordlField, "iheartcheese");
+
+    const actionForm = screen.getByTestId("sign-in-form");
+
+    const actionBtn = getByRole(actionForm, "button", {
+      name: buttonNameRegEx,
+    });
+    userEvent.click(actionBtn);
+    server.resetHandlers();
+    userEvent.click(actionBtn);
+    await waitFor(() => {
+      expect(history.location.pathname).toBe(route);
+      expect(history.entries).toHaveLength(1);
+    });
+  }
+);
