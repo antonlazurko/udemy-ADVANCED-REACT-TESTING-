@@ -1,6 +1,17 @@
 import userEvent from "@testing-library/user-event";
+import {
+  DefaultRequestBody,
+  RequestParams,
+  ResponseComposition,
+  rest,
+  RestContext,
+  RestRequest,
+} from "msw";
 
 import { App } from "../../../App";
+import { baseUrl, endpoints } from "../../../app/axios/constants";
+import { handlers } from "../../../mocks/handlers";
+import { server } from "../../../mocks/server";
 import { getByRole, render, screen, waitFor } from "../../../test-utils";
 
 test("redirects to sign-in page from /profile when not auth", () => {
@@ -33,24 +44,24 @@ test.each([
 });
 
 // test("succesful sign-in flow", async () => {
-//   const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
+// const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
 
-//   const emailField = screen.getByLabelText(/email/i);
-//   userEvent.type(emailField, "booking@avancheogcheese.com");
+// const emailField = screen.getByLabelText(/email/i);
+// userEvent.type(emailField, "booking@avancheogcheese.com");
 
-//   const passwordlField = screen.getByLabelText(/password/i);
-//   userEvent.type(passwordlField, "iheartcheese");
+// const passwordlField = screen.getByLabelText(/password/i);
+// userEvent.type(passwordlField, "iheartcheese");
 
-//   const signInForm = screen.getByTestId("sign-in-form");
+// const signInForm = screen.getByTestId("sign-in-form");
 
-//   const signInBtn = getByRole(signInForm, "button", {
-//     name: /sign in/i,
-//   });
-//   userEvent.click(signInBtn);
-//   await waitFor(() => {
-//     expect(history.location.pathname).toBe("/tickets/1");
-//   });
-//   expect(history.entries).toHaveLength(1);
+// const signInBtn = getByRole(signInForm, "button", {
+//   name: /sign in/i,
+// });
+// userEvent.click(signInBtn);
+// await waitFor(() => {
+//   expect(history.location.pathname).toBe("/tickets/1");
+// });
+// expect(history.entries).toHaveLength(1);
 // });
 // test("succesful sign-up flow", async () => {
 //   const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
@@ -100,5 +111,40 @@ test.each([
     expect(history.location.pathname).toBe("/tickets/1");
   });
 
+  expect(history.entries).toHaveLength(1);
+});
+
+const signInFailure = (
+  req: RestRequest<DefaultRequestBody, RequestParams>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  res: ResponseComposition<any>,
+  ctx: RestContext
+) => res(ctx.status(401));
+
+test("unsuccessfull sign in followed by successfull signin", async () => {
+  const errorHandler = rest.post(
+    `${baseUrl}/${endpoints.signIn}`,
+    signInFailure
+  );
+  server.resetHandlers(...handlers, errorHandler);
+  const { history } = render(<App />, { routeHistory: ["/tickets/1"] });
+
+  const emailField = screen.getByLabelText(/email/i);
+  userEvent.type(emailField, "booking@avancheofcheese.com");
+
+  const passwordlField = screen.getByLabelText(/password/i);
+  userEvent.type(passwordlField, "iheartcheese");
+
+  const signInForm = screen.getByTestId("sign-in-form");
+
+  const signInBtn = getByRole(signInForm, "button", {
+    name: /sign in/i,
+  });
+  userEvent.click(signInBtn);
+  server.resetHandlers();
+  userEvent.click(signInBtn);
+  await waitFor(() => {
+    expect(history.location.pathname).toBe("/tickets/1");
+  });
   expect(history.entries).toHaveLength(1);
 });
