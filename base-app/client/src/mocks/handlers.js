@@ -27,5 +27,5 @@ export const handlers = [
   rest.patch(`${showsUrl}/:showId/hold/:holdId`, (req, res, ctx) => {
     return res(ctx.status(200));
   }),
-  rest.post(`${baseUrl}/${endpoints.signin}`, authHandler),
+  rest.post(`${baseUrl}/${endpoints.signIn}`, authHandler),
 ];
